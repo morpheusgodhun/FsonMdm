@@ -8,24 +8,32 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.fson.mdm.R
 import com.fson.mdm.core.Constants
+import com.fson.mdm.data.MdmRepository
+import com.fson.mdm.data.MdmResult
+import com.fson.mdm.service.ScreenCaptureService
 
 /**
  * Executes one-time remote commands. Returns true when the action was carried
- * out so the caller can ACK the command as DONE.
+ * out so the caller can ACK the command as DONE. Network-bound commands
+ * (location, APK install, screenshot) run on the calling coroutine.
  */
 class CommandExecutor(context: Context) {
 
     private val appContext = context.applicationContext
     private val dpm = appContext.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
     private val admin = MdmDeviceAdminReceiver.componentName(appContext)
+    private val repo = MdmRepository(appContext)
 
     private val isDeviceOwner: Boolean get() = dpm.isDeviceOwnerApp(appContext.packageName)
     private val isAdminActive: Boolean get() = dpm.isAdminActive(admin)
 
-    fun execute(type: String, payload: String?): Boolean = when (type.trim().uppercase()) {
+    suspend fun execute(type: String, payload: String?): Boolean = when (type.trim().uppercase()) {
         Constants.CMD_LOCK -> lock()
         Constants.CMD_MESSAGE -> message(payload)
         Constants.CMD_RESTART -> restart()
+        Constants.CMD_INSTALL_APK -> installApk(payload)
+        Constants.CMD_REQUEST_LOCATION -> reportLocation()
+        Constants.CMD_SCREENSHOT -> screenshot()
         else -> {
             Log.w(TAG, "Bilinmeyen komut: $type")
             false
@@ -68,6 +76,49 @@ class CommandExecutor(context: Context) {
         } else false
     } catch (e: Exception) {
         Log.w(TAG, "restart hata: ${e.message}"); false
+    }
+
+    /** Downloads the managed APK identified by [payload] (app id) and installs it silently. */
+    private suspend fun installApk(payload: String?): Boolean {
+        val appId = payload?.trim()
+        if (appId.isNullOrBlank()) {
+            Log.w(TAG, "INSTALL_APK: appId payload eksik")
+            return false
+        }
+        val file = repo.downloadApk(appId)
+        if (file == null) {
+            Log.w(TAG, "INSTALL_APK: APK indirilemedi")
+            return false
+        }
+        return ApkInstaller(appContext).install(file)
+    }
+
+    /** Captures a single location fix and reports it immediately. */
+    private suspend fun reportLocation(): Boolean {
+        val location = LocationProvider(appContext).currentLocation()
+        if (location == null) {
+            Log.w(TAG, "REQUEST_LOCATION: konum alınamadı (izin/sağlayıcı yok)")
+            return false
+        }
+        val acc = if (location.hasAccuracy()) location.accuracy.toDouble() else null
+        return when (repo.reportLocation(location.latitude, location.longitude, acc)) {
+            is MdmResult.Ok -> true
+            is MdmResult.Err -> false
+        }
+    }
+
+    /**
+     * Triggers a remote screenshot if the operator has granted MediaProjection
+     * consent (once per app run via MainActivity). The capture + upload happen
+     * in [ScreenCaptureService].
+     */
+    private fun screenshot(): Boolean {
+        if (!MediaProjectionHolder.hasConsent) {
+            Log.w(TAG, "SCREENSHOT: ekran yakalama izni verilmemiş")
+            return false
+        }
+        ScreenCaptureService.start(appContext)
+        return true
     }
 
     companion object {

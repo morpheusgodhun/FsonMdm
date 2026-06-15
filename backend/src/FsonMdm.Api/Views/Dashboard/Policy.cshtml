@@ -1,0 +1,80 @@
+@model PolicyEditViewModel
+@{
+    ViewData["Title"] = "Politika & Kiosk";
+    var selected = new HashSet<string>(Model.AllowedApps, StringComparer.OrdinalIgnoreCase);
+    var catalogPackages = new HashSet<string>(Model.Catalog.Select(c => c.PackageName), StringComparer.OrdinalIgnoreCase);
+    // Whitelisted packages that aren't in the reported catalog (manually added).
+    var manualOnly = Model.AllowedApps.Where(p => !catalogPackages.Contains(p)).ToList();
+}
+
+<div class="page-head">
+    <h1>Politika &amp; Kiosk</h1>
+    <span class="muted">Aktif sürüm: v@Model.Version</span>
+</div>
+
+@if (!string.IsNullOrEmpty(Model.StatusMessage))
+{
+    <div class="alert alert-ok">@Model.StatusMessage</div>
+}
+
+<form asp-action="SavePolicy" method="post">
+    @Html.AntiForgeryToken()
+    <div class="row">
+        <div class="col">
+            <div class="card">
+                <h2>Genel Kısıtlamalar</h2>
+                <label>Politika Adı</label>
+                <input type="text" name="name" value="@Model.Name" />
+
+                <label class="checkbox" style="margin-top:16px">
+                    <input type="checkbox" name="kioskMode" value="true" @(Model.KioskMode ? "checked" : "") />
+                    Kiosk Modu (yalnızca izin verilen uygulamalar)
+                </label>
+                <label class="checkbox">
+                    <input type="checkbox" name="blockCamera" value="true" @(Model.BlockCamera ? "checked" : "") />
+                    Kamerayı engelle
+                </label>
+                <label class="checkbox">
+                    <input type="checkbox" name="blockSettings" value="true" @(Model.BlockSettings ? "checked" : "") />
+                    Ayarlar uygulamasını engelle
+                </label>
+                <label class="checkbox">
+                    <input type="checkbox" name="blockPlayStore" value="true" @(Model.BlockPlayStore ? "checked" : "") />
+                    Play Store'u engelle
+                </label>
+            </div>
+
+            <div class="card">
+                <h2>Manuel Paket Ekle</h2>
+                <p class="muted" style="margin-top:0">Listede olmayan paketleri ekleyin (her satıra bir paket adı, ör. <code class="pkg">com.android.chrome</code>).</p>
+                <textarea name="manualApps" placeholder="com.ornek.uygulama">@string.Join("\n", manualOnly)</textarea>
+            </div>
+        </div>
+
+        <div class="col">
+            <div class="card">
+                <h2>Kiosk Beyaz Listesi</h2>
+                <p class="muted" style="margin-top:0">Cihazların bildirdiği uygulamalardan seçin. Kiosk modunda yalnızca işaretliler görünür.</p>
+                @if (Model.Catalog.Count == 0)
+                {
+                    <div class="empty">Cihazlar henüz uygulama envanteri bildirmedi. Bir cihaz kaydolup senkron olunca burada listelenir. Bu arada manuel paket ekleyebilirsiniz.</div>
+                }
+                else
+                {
+                    <div class="app-list">
+                        @foreach (var app in Model.Catalog)
+                        {
+                            <label class="checkbox">
+                                <input type="checkbox" name="allowedApps" value="@app.PackageName"
+                                       @(selected.Contains(app.PackageName) ? "checked" : "") />
+                                <span>@app.AppLabel <br /><code class="pkg">@app.PackageName</code></span>
+                            </label>
+                        }
+                    </div>
+                }
+            </div>
+
+            <button class="btn btn-copper btn-block" type="submit">Politikayı Kaydet</button>
+        </div>
+    </div>
+</form>

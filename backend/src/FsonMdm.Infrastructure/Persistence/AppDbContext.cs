@@ -13,6 +13,9 @@ public class AppDbContext : DbContext, IUnitOfWork
     public DbSet<Device> Devices => Set<Device>();
     public DbSet<Policy> Policies => Set<Policy>();
     public DbSet<Command> Commands => Set<Command>();
+    public DbSet<DeviceLocation> DeviceLocations => Set<DeviceLocation>();
+    public DbSet<DeviceApp> DeviceApps => Set<DeviceApp>();
+    public DbSet<ManagedApp> ManagedApps => Set<ManagedApp>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

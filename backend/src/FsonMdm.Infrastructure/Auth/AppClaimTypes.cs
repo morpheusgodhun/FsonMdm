@@ -12,3 +12,9 @@ public static class AppRoles
     public const string Admin = "Admin";
     public const string Device = "Device";
 }
+
+public static class AuthSchemes
+{
+    /// <summary>Cookie scheme used by the server-rendered admin dashboard.</summary>
+    public const string Dashboard = "Dashboard";
+}

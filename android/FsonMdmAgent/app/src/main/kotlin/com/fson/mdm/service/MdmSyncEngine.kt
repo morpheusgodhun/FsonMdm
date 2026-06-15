@@ -8,6 +8,8 @@ import com.fson.mdm.data.MdmRepository
 import com.fson.mdm.data.MdmResult
 import com.fson.mdm.device.CommandExecutor
 import com.fson.mdm.device.PolicyEnforcer
+import com.fson.mdm.device.LocationProvider
+import com.fson.mdm.device.AppInventory
 import com.google.gson.Gson
 
 /**
@@ -22,6 +24,8 @@ class MdmSyncEngine(context: Context) {
     private val repo = MdmRepository(appContext)
     private val enforcer = PolicyEnforcer(appContext)
     private val executor = CommandExecutor(appContext)
+    private val location = LocationProvider(appContext)
+    private val inventory = AppInventory(appContext)
     private val gson = Gson()
 
     /** Runs a complete cycle. Safe to call repeatedly; tolerates partial failures. */
@@ -32,6 +36,8 @@ class MdmSyncEngine(context: Context) {
         }
         sendHeartbeat()
         enforcePolicy()
+        reportLocationBestEffort()
+        reportAppsIfDue()
         drainCommands()
     }
 
@@ -66,6 +72,36 @@ class MdmSyncEngine(context: Context) {
             val config = gson.fromJson(json, com.fson.mdm.data.remote.dto.PolicyConfigDto::class.java)
             enforcer.apply(config)
         }.onFailure { Log.w(TAG, "Önbellek politikası uygulanamadı: ${it.message}") }
+    }
+
+    /** Best-effort location report each cycle (only when permission is granted). */
+    private suspend fun reportLocationBestEffort() {
+        if (!location.hasPermission()) return
+        runCatching {
+            val loc = location.currentLocation()
+            if (loc != null) {
+                val acc = if (loc.hasAccuracy()) loc.accuracy.toDouble() else null
+                repo.reportLocation(loc.latitude, loc.longitude, acc)
+            }
+        }.onFailure { Log.w(TAG, "Konum bildirimi hata: ${it.message}") }
+    }
+
+    /** Reports the installed-app inventory, throttled to avoid churn. */
+    private suspend fun reportAppsIfDue() {
+        val now = System.currentTimeMillis()
+        if (now - prefs.lastAppsReportAt < Constants.APP_INVENTORY_MIN_INTERVAL_MS) return
+        runCatching {
+            val apps = inventory.collect()
+            if (apps.isNotEmpty()) {
+                when (repo.reportApps(apps)) {
+                    is MdmResult.Ok -> {
+                        prefs.lastAppsReportAt = now
+                        Log.d(TAG, "Uygulama envanteri bildirildi (${apps.size})")
+                    }
+                    is MdmResult.Err -> {}
+                }
+            }
+        }.onFailure { Log.w(TAG, "Uygulama envanteri hata: ${it.message}") }
     }
 
     private suspend fun drainCommands() {

@@ -29,6 +29,10 @@
     <string name="perm_battery">Pil optimizasyonu muafiyeti</string>
     <string name="perm_usage">Kullanım erişimi (Usage Access)</string>
     <string name="perm_overlay">Diğer uygulamaların üzerinde gösterme</string>
+    <string name="perm_location">Konum erişimi</string>
+    <string name="perm_remote_view">Uzaktan görüntüleme (ekran)</string>
+    <string name="msg_remote_view_ready">Uzaktan görüntüleme izni verildi.</string>
+    <string name="msg_remote_view_denied">Uzaktan görüntüleme izni reddedildi.</string>
     <string name="perm_grant">İzin Ver</string>
     <string name="perm_granted">Verildi</string>
     <string name="perm_missing">Eksik</string>

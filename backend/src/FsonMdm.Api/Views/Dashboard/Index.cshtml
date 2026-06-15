@@ -1,0 +1,65 @@
+@model IReadOnlyList<DeviceDto>
+@{
+    ViewData["Title"] = "Cihazlar";
+    string Badge(string s) => s switch
+    {
+        "Active" => "active",
+        "Blocked" => "blocked",
+        _ => "inactive"
+    };
+    string BadgeText(string s) => s switch
+    {
+        "Active" => "Aktif",
+        "Blocked" => "Engelli",
+        _ => "Pasif"
+    };
+}
+
+<div class="page-head">
+    <h1>Cihazlar</h1>
+    <span class="muted">@Model.Count cihaz</span>
+</div>
+
+<div class="card">
+    @if (Model.Count == 0)
+    {
+        <div class="empty">Henüz kayıtlı cihaz yok. Ajan uygulamasını bir cihazda kaydedin.</div>
+    }
+    else
+    {
+        <table>
+            <thead>
+                <tr>
+                    <th>Cihaz</th>
+                    <th>Model</th>
+                    <th>Durum</th>
+                    <th>Son Görülme</th>
+                    <th>Son Konum</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var d in Model)
+                {
+                    <tr>
+                        <td><code class="pkg">@d.DeviceId</code></td>
+                        <td>@d.Model</td>
+                        <td><span class="badge @Badge(d.Status)">@BadgeText(d.Status)</span></td>
+                        <td>@(d.LastSeen?.ToLocalTime().ToString("dd.MM.yyyy HH:mm") ?? "—")</td>
+                        <td>
+                            @if (d.LastLatitude.HasValue)
+                            {
+                                <span>@d.LastLatitude.Value.ToString("0.0000"), @d.LastLongitude!.Value.ToString("0.0000")</span>
+                            }
+                            else
+                            {
+                                <span class="muted">—</span>
+                            }
+                        </td>
+                        <td><a class="btn btn-sm" asp-action="Device" asp-route-id="@d.Id">Yönet</a></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>

@@ -26,6 +26,21 @@
     <!-- Overlay (kiosk / message display) -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
+    <!-- Location tracking -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+
+    <!-- Silent APK install (Device Owner) -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
+    <!-- Remote screenshot via MediaProjection -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+
+    <!-- Installed-app inventory (kiosk whitelist picker) -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="QueryAllPackagesPermission" />
+
     <application
         android:name=".FsonMdmApp"
         android:allowBackup="false"
@@ -65,6 +80,12 @@
             android:name=".service.HeartbeatService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
+
+        <!-- One-shot screen capture for remote view (screenshot) -->
+        <service
+            android:name=".service.ScreenCaptureService"
+            android:exported="false"
+            android:foregroundServiceType="mediaProjection" />
 
         <!-- Device Owner / Device Admin receiver. Owner is assumed already granted. -->
         <receiver

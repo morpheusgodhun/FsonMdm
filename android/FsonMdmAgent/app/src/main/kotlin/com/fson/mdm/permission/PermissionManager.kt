@@ -19,14 +19,21 @@ class PermissionManager(context: Context) {
 
     private val appContext = context.applicationContext
 
-    enum class PermissionType { NOTIFICATIONS, BATTERY, USAGE_ACCESS, OVERLAY }
+    enum class PermissionType { NOTIFICATIONS, BATTERY, USAGE_ACCESS, OVERLAY, LOCATION }
 
     fun isGranted(type: PermissionType): Boolean = when (type) {
         PermissionType.NOTIFICATIONS -> notificationsGranted()
         PermissionType.BATTERY -> batteryIgnored()
         PermissionType.USAGE_ACCESS -> usageAccessGranted()
         PermissionType.OVERLAY -> overlayGranted()
+        PermissionType.LOCATION -> locationGranted()
     }
+
+    private fun locationGranted(): Boolean =
+        appContext.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) ==
+            PackageManager.PERMISSION_GRANTED ||
+        appContext.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) ==
+            PackageManager.PERMISSION_GRANTED
 
     private fun notificationsGranted(): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return true
@@ -66,6 +73,7 @@ class PermissionManager(context: Context) {
      */
     fun settingsIntentFor(type: PermissionType): Intent? = when (type) {
         PermissionType.NOTIFICATIONS -> null
+        PermissionType.LOCATION -> null
         PermissionType.BATTERY -> Intent(
             Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
             Uri.parse("package:${appContext.packageName}")

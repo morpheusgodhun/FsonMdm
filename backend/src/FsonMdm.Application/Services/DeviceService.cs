@@ -11,6 +11,8 @@ public class DeviceService : IDeviceService
 {
     private readonly ITenantRepository _tenants;
     private readonly IDeviceRepository _devices;
+    private readonly IDeviceLocationRepository _locations;
+    private readonly IDeviceAppRepository _apps;
     private readonly IJwtTokenGenerator _tokenGenerator;
     private readonly ITenantContext _tenantContext;
     private readonly IUnitOfWork _unitOfWork;
@@ -18,12 +20,16 @@ public class DeviceService : IDeviceService
     public DeviceService(
         ITenantRepository tenants,
         IDeviceRepository devices,
+        IDeviceLocationRepository locations,
+        IDeviceAppRepository apps,
         IJwtTokenGenerator tokenGenerator,
         ITenantContext tenantContext,
         IUnitOfWork unitOfWork)
     {
         _tenants = tenants;
         _devices = devices;
+        _locations = locations;
+        _apps = apps;
         _tokenGenerator = tokenGenerator;
         _tenantContext = tenantContext;
         _unitOfWork = unitOfWork;
@@ -71,11 +77,7 @@ public class DeviceService : IDeviceService
 
     public async Task HeartbeatAsync(HeartbeatRequest request, CancellationToken ct = default)
     {
-        var deviceId = _tenantContext.DeviceId
-                       ?? throw new AuthException("Heartbeat yalnızca cihaz tokenı ile çağrılabilir.");
-
-        var device = await _devices.GetByIdAsync(_tenantContext.TenantId, deviceId, ct)
-                     ?? throw new NotFoundException("Cihaz bulunamadı.");
+        var device = await CurrentDeviceAsync(ct);
 
         device.LastSeen = DateTime.UtcNow;
         if (!string.IsNullOrWhiteSpace(request.IPAddress))
@@ -94,6 +96,99 @@ public class DeviceService : IDeviceService
         return devices.Select(Map).ToList();
     }
 
+    public async Task<DeviceDto> GetByIdAsync(Guid id, CancellationToken ct = default)
+    {
+        var device = await _devices.GetByIdAsync(_tenantContext.TenantId, id, ct)
+                     ?? throw new NotFoundException("Cihaz bulunamadı.");
+        return Map(device);
+    }
+
+    public async Task ReportLocationAsync(LocationReportRequest request, CancellationToken ct = default)
+    {
+        var device = await CurrentDeviceAsync(ct);
+        var now = DateTime.UtcNow;
+
+        await _locations.AddAsync(new DeviceLocation
+        {
+            TenantId = device.TenantId,
+            DeviceId = device.Id,
+            Latitude = request.Latitude,
+            Longitude = request.Longitude,
+            Accuracy = request.Accuracy,
+            CapturedAt = now
+        }, ct);
+
+        device.LastLatitude = request.Latitude;
+        device.LastLongitude = request.Longitude;
+        device.LastLocationAt = now;
+
+        await _unitOfWork.SaveChangesAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<DeviceLocationDto>> GetLocationsAsync(Guid deviceId, int take = 50, CancellationToken ct = default)
+    {
+        // Ownership: ensure the device belongs to the caller's tenant.
+        _ = await _devices.GetByIdAsync(_tenantContext.TenantId, deviceId, ct)
+            ?? throw new NotFoundException("Cihaz bulunamadı.");
+
+        var rows = await _locations.ListByDeviceAsync(_tenantContext.TenantId, deviceId, take, ct);
+        return rows.Select(l => new DeviceLocationDto(l.Latitude, l.Longitude, l.Accuracy, l.CapturedAt)).ToList();
+    }
+
+    public async Task ReportAppsAsync(ReportAppsRequest request, CancellationToken ct = default)
+    {
+        var device = await CurrentDeviceAsync(ct);
+        var now = DateTime.UtcNow;
+
+        var apps = (request.Apps ?? new())
+            .Where(a => !string.IsNullOrWhiteSpace(a.PackageName))
+            .Select(a => new DeviceApp
+            {
+                TenantId = device.TenantId,
+                DeviceId = device.Id,
+                PackageName = a.PackageName.Trim(),
+                AppLabel = string.IsNullOrWhiteSpace(a.AppLabel) ? a.PackageName.Trim() : a.AppLabel.Trim(),
+                IsLaunchable = a.IsLaunchable,
+                ReportedAt = now
+            });
+
+        await _apps.ReplaceForDeviceAsync(device.TenantId, device.Id, apps, ct);
+        await _unitOfWork.SaveChangesAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<DeviceAppDto>> GetAppsAsync(Guid deviceId, CancellationToken ct = default)
+    {
+        _ = await _devices.GetByIdAsync(_tenantContext.TenantId, deviceId, ct)
+            ?? throw new NotFoundException("Cihaz bulunamadı.");
+
+        var rows = await _apps.ListByDeviceAsync(_tenantContext.TenantId, deviceId, ct);
+        return rows.Select(a => new DeviceAppDto(a.PackageName, a.AppLabel, a.IsLaunchable)).ToList();
+    }
+
+    public async Task<IReadOnlyList<DeviceAppDto>> GetTenantAppCatalogAsync(CancellationToken ct = default)
+    {
+        var rows = await _apps.ListDistinctByTenantAsync(_tenantContext.TenantId, ct);
+        return rows.Select(a => new DeviceAppDto(a.PackageName, a.AppLabel, a.IsLaunchable)).ToList();
+    }
+
+    public async Task SetScreenshotAsync(string relativePath, CancellationToken ct = default)
+    {
+        var device = await CurrentDeviceAsync(ct);
+        device.LastScreenshotPath = relativePath;
+        device.LastScreenshotAt = DateTime.UtcNow;
+        await _unitOfWork.SaveChangesAsync(ct);
+    }
+
+    /// <summary>Resolves the device the current device-token belongs to.</summary>
+    private async Task<Device> CurrentDeviceAsync(CancellationToken ct)
+    {
+        var deviceId = _tenantContext.DeviceId
+                       ?? throw new AuthException("Bu işlem yalnızca cihaz tokenı ile çağrılabilir.");
+        return await _devices.GetByIdAsync(_tenantContext.TenantId, deviceId, ct)
+               ?? throw new NotFoundException("Cihaz bulunamadı.");
+    }
+
     private static DeviceDto Map(Device d) => new(
-        d.Id, d.DeviceId, d.Model, d.IPAddress, d.Status.ToString(), d.LastSeen, d.CreatedAt);
+        d.Id, d.DeviceId, d.Model, d.IPAddress, d.Status.ToString(), d.LastSeen, d.CreatedAt,
+        d.LastLatitude, d.LastLongitude, d.LastLocationAt, d.LastScreenshotPath, d.LastScreenshotAt);
 }

@@ -7,4 +7,9 @@ public record DeviceDto(
     string? IPAddress,
     string Status,
     DateTime? LastSeen,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    double? LastLatitude,
+    double? LastLongitude,
+    DateTime? LastLocationAt,
+    string? LastScreenshotPath,
+    DateTime? LastScreenshotAt);

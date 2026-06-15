@@ -1,11 +1,15 @@
 using FsonMdm.Api.Middleware;
+using FsonMdm.Api.Services;
 using FsonMdm.Application;
 using FsonMdm.Infrastructure;
+using FsonMdm.Infrastructure.Auth;
+using Microsoft.AspNetCore.Http;
 using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllers();
+// API controllers + server-rendered dashboard (MVC + Razor views) in one host.
+builder.Services.AddControllersWithViews();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
@@ -32,6 +36,31 @@ builder.Services.AddCors(options =>
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
+// File storage for uploaded APKs and screenshots.
+builder.Services.AddScoped<FileStorage>();
+
+// Cookie scheme for the dashboard. JWT remains the default scheme for the API;
+// dashboard controllers opt into this scheme explicitly. The shared ITenantContext
+// resolves tenant/role from whichever principal authenticated.
+builder.Services.AddAuthentication()
+    .AddCookie(AuthSchemes.Dashboard, options =>
+    {
+        options.Cookie.Name = "fson_mdm_dashboard";
+        options.Cookie.HttpOnly = true;
+        options.Cookie.SameSite = SameSiteMode.Lax;
+        options.LoginPath = "/dashboard/login";
+        options.LogoutPath = "/dashboard/logout";
+        options.AccessDeniedPath = "/dashboard/login";
+        options.ExpireTimeSpan = TimeSpan.FromHours(8);
+        options.SlidingExpiration = true;
+    });
+
+// Allow large APK uploads through the multipart form limit.
+builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = 512_000_000; // 512 MB
+});
+
 var app = builder.Build();
 
 await app.Services.InitializeDatabaseAsync();
@@ -43,9 +72,20 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
+app.UseStaticFiles();
+app.UseRouting();
 app.UseCors("Default");
 app.UseAuthentication();
 app.UseAuthorization();
+
+// API attribute-routed controllers + dashboard MVC routes.
 app.MapControllers();
+app.MapControllerRoute(
+    name: "dashboard",
+    pattern: "dashboard/{action=Index}/{id?}",
+    defaults: new { controller = "Dashboard" });
+
+// Root → dashboard.
+app.MapGet("/", () => Results.Redirect("/dashboard"));
 
 app.Run();

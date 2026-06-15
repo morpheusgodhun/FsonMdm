@@ -1,7 +1,10 @@
 package com.fson.mdm.ui
 
 import android.Manifest
+import android.app.Activity
+import android.content.Context
 import android.content.Intent
+import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.Bundle
 import android.view.Gravity
@@ -19,6 +22,7 @@ import com.fson.mdm.data.MdmRepository
 import com.fson.mdm.data.MdmResult
 import com.fson.mdm.databinding.ActivityMainBinding
 import com.fson.mdm.device.KioskManager
+import com.fson.mdm.device.MediaProjectionHolder
 import com.fson.mdm.device.PolicyEnforcer
 import com.fson.mdm.permission.PermissionManager
 import com.fson.mdm.service.HeartbeatService
@@ -42,6 +46,22 @@ class MainActivity : AppCompatActivity() {
 
     private val notificationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) {
+            renderPermissions()
+        }
+
+    private val locationPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+            renderPermissions()
+        }
+
+    private val projectionLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == Activity.RESULT_OK && result.data != null) {
+                MediaProjectionHolder.set(result.resultCode, result.data!!)
+                toast(getString(R.string.msg_remote_view_ready))
+            } else {
+                toast(getString(R.string.msg_remote_view_denied))
+            }
             renderPermissions()
         }
 
@@ -189,6 +209,52 @@ class MainActivity : AppCompatActivity() {
         addPermissionRow(container, getString(R.string.perm_battery), PermissionManager.PermissionType.BATTERY)
         addPermissionRow(container, getString(R.string.perm_usage), PermissionManager.PermissionType.USAGE_ACCESS)
         addPermissionRow(container, getString(R.string.perm_overlay), PermissionManager.PermissionType.OVERLAY)
+        addPermissionRow(container, getString(R.string.perm_location), PermissionManager.PermissionType.LOCATION)
+        addRemoteViewRow(container)
+    }
+
+    /** Lets the operator grant one-time MediaProjection consent for remote screenshots. */
+    private fun addRemoteViewRow(container: LinearLayout) {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, dp(8), 0, dp(8))
+        }
+        val name = TextView(this).apply {
+            text = getString(R.string.perm_remote_view)
+            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.fson_text))
+            textSize = 14f
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        }
+        val ready = MediaProjectionHolder.hasConsent
+        val status = TextView(this).apply {
+            text = getString(if (ready) R.string.perm_granted else R.string.perm_missing)
+            setTextColor(
+                ContextCompat.getColor(
+                    this@MainActivity,
+                    if (ready) R.color.fson_green else R.color.fson_red
+                )
+            )
+            textSize = 13f
+            setPadding(dp(8), 0, dp(8), 0)
+        }
+        row.addView(name)
+        row.addView(status)
+        if (!ready) {
+            val grant = Button(this).apply {
+                text = getString(R.string.perm_grant)
+                textSize = 12f
+                setOnClickListener { requestRemoteViewConsent() }
+            }
+            row.addView(grant)
+        }
+        container.addView(row)
+    }
+
+    private fun requestRemoteViewConsent() {
+        val mpm = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+        runCatching { projectionLauncher.launch(mpm.createScreenCaptureIntent()) }
+            .onFailure { toast("Ekran yakalama isteği açılamadı: ${it.message}") }
     }
 
     private fun addPermissionRow(
@@ -243,6 +309,12 @@ class MainActivity : AppCompatActivity() {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
             }
+            return
+        }
+        if (type == PermissionManager.PermissionType.LOCATION) {
+            locationPermissionLauncher.launch(
+                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
+            )
             return
         }
         permissions.settingsIntentFor(type)?.let { intent ->

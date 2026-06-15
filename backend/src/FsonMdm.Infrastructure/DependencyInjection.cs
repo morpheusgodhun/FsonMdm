@@ -17,7 +17,7 @@ public static class DependencyInjection
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(configuration.GetConnectionString("SqlCon")));
+      options.UseSqlServer(configuration.GetConnectionString("Default")));
 
         services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<AppDbContext>());
 
@@ -26,6 +26,9 @@ public static class DependencyInjection
         services.AddScoped<IDeviceRepository, DeviceRepository>();
         services.AddScoped<IPolicyRepository, PolicyRepository>();
         services.AddScoped<ICommandRepository, CommandRepository>();
+        services.AddScoped<IDeviceLocationRepository, DeviceLocationRepository>();
+        services.AddScoped<IDeviceAppRepository, DeviceAppRepository>();
+        services.AddScoped<IManagedAppRepository, ManagedAppRepository>();
 
         services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
 
@@ -58,6 +61,9 @@ public static class DependencyInjection
                     ClockSkew = TimeSpan.FromMinutes(1)
                 };
             });
+
+        // The dashboard cookie scheme is added in the API (Web) project, where the
+        // ASP.NET Core shared framework (cookie handler) is available.
 
         services.AddAuthorization();
     }

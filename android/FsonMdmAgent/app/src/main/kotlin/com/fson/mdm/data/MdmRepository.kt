@@ -7,11 +7,18 @@ import com.fson.mdm.core.Prefs
 import com.fson.mdm.data.remote.ApiClient
 import com.fson.mdm.data.remote.dto.AckRequest
 import com.fson.mdm.data.remote.dto.CommandDto
+import com.fson.mdm.data.remote.dto.DeviceAppItem
 import com.fson.mdm.data.remote.dto.HeartbeatRequest
+import com.fson.mdm.data.remote.dto.LocationReportRequest
 import com.fson.mdm.data.remote.dto.PolicyDto
 import com.fson.mdm.data.remote.dto.RegisterRequest
+import com.fson.mdm.data.remote.dto.ReportAppsRequest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.toRequestBody
+import java.io.File
 import java.net.Inet4Address
 import java.net.NetworkInterface
 
@@ -124,6 +131,63 @@ class MdmRepository(context: Context) {
             else MdmResult.Err(errorText(res.code(), res.errorBody()?.string()))
         } catch (e: Exception) {
             MdmResult.Err(e.localizedMessage ?: "Ağ hatası")
+        }
+    }
+
+    // ---- Location ----
+
+    suspend fun reportLocation(lat: Double, lng: Double, accuracy: Double?): MdmResult<Unit> =
+        withContext(Dispatchers.IO) {
+            try {
+                val res = api.reportLocation(LocationReportRequest(lat, lng, accuracy))
+                if (res.isSuccessful) MdmResult.Ok(Unit)
+                else MdmResult.Err(errorText(res.code(), res.errorBody()?.string()))
+            } catch (e: Exception) {
+                MdmResult.Err(e.localizedMessage ?: "Ağ hatası")
+            }
+        }
+
+    // ---- Installed-app inventory ----
+
+    suspend fun reportApps(apps: List<DeviceAppItem>): MdmResult<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val res = api.reportApps(ReportAppsRequest(apps))
+            if (res.isSuccessful) MdmResult.Ok(Unit)
+            else MdmResult.Err(errorText(res.code(), res.errorBody()?.string()))
+        } catch (e: Exception) {
+            MdmResult.Err(e.localizedMessage ?: "Ağ hatası")
+        }
+    }
+
+    // ---- Remote screenshot ----
+
+    suspend fun uploadScreenshot(png: ByteArray): MdmResult<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val body = png.toRequestBody("image/png".toMediaTypeOrNull())
+            val part = MultipartBody.Part.createFormData("file", "screenshot.png", body)
+            val res = api.uploadScreenshot(part)
+            if (res.isSuccessful) MdmResult.Ok(Unit)
+            else MdmResult.Err(errorText(res.code(), res.errorBody()?.string()))
+        } catch (e: Exception) {
+            MdmResult.Err(e.localizedMessage ?: "Ağ hatası")
+        }
+    }
+
+    // ---- APK download ----
+
+    /** Downloads a managed APK by id to a cache file. Returns the file or null. */
+    suspend fun downloadApk(appId: String): File? = withContext(Dispatchers.IO) {
+        try {
+            val res = api.downloadFile("api/app/download/$appId")
+            if (!res.isSuccessful) return@withContext null
+            val body = res.body() ?: return@withContext null
+            val outFile = File(appContext.cacheDir, "install_$appId.apk")
+            body.byteStream().use { input ->
+                outFile.outputStream().use { output -> input.copyTo(output) }
+            }
+            outFile
+        } catch (e: Exception) {
+            null
         }
     }
 

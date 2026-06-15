@@ -50,6 +50,11 @@ class Prefs private constructor(context: Context) {
         get() = sp.getBoolean(KEY_KIOSK, false)
         set(value) = sp.edit { putBoolean(KEY_KIOSK, value) }
 
+    /** Epoch millis of the last installed-app inventory report (throttling). */
+    var lastAppsReportAt: Long
+        get() = sp.getLong(KEY_APPS_REPORTED_AT, 0L)
+        set(value) = sp.edit { putLong(KEY_APPS_REPORTED_AT, value) }
+
     val isRegistered: Boolean get() = !token.isNullOrBlank() && !deviceId.isNullOrBlank()
 
     fun clearRegistration() = sp.edit {
@@ -65,6 +70,7 @@ class Prefs private constructor(context: Context) {
         private const val KEY_POLICY_JSON = "policy_json"
         private const val KEY_POLICY_VERSION = "policy_version"
         private const val KEY_KIOSK = "kiosk_active"
+        private const val KEY_APPS_REPORTED_AT = "apps_reported_at"
 
         @Volatile private var instance: Prefs? = null
 

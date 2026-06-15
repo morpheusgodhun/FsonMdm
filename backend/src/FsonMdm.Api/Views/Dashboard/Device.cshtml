@@ -1,0 +1,183 @@
+@model DeviceDetailViewModel
+@using System.Text.Json
+@{
+    ViewData["Title"] = "Cihaz";
+    var d = Model.Device;
+    var locationsJson = JsonSerializer.Serialize(Model.Locations.Select(l => new {
+        lat = l.Latitude, lng = l.Longitude, at = l.CapturedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm"), acc = l.Accuracy
+    }));
+}
+
+<div class="page-head">
+    <h1>@d.Model <span class="muted" style="font-size:14px">/ @d.DeviceId</span></h1>
+    <a class="btn btn-ghost" asp-action="Index" style="border-color:#c9d3e0;color:var(--navy)">← Cihazlar</a>
+</div>
+
+@if (!string.IsNullOrEmpty(Model.StatusMessage))
+{
+    <div class="alert alert-ok">@Model.StatusMessage</div>
+}
+
+<div class="row">
+    <div class="col">
+        <div class="card">
+            <h2>Cihaz Bilgisi</h2>
+            <div class="kv"><span>Donanım Kimliği</span><span><code class="pkg">@d.DeviceId</code></span></div>
+            <div class="kv"><span>Model</span><span>@d.Model</span></div>
+            <div class="kv"><span>IP Adresi</span><span>@(d.IPAddress ?? "—")</span></div>
+            <div class="kv"><span>Durum</span><span>@d.Status</span></div>
+            <div class="kv"><span>Son Görülme</span><span>@(d.LastSeen?.ToLocalTime().ToString("dd.MM.yyyy HH:mm:ss") ?? "—")</span></div>
+            <div class="kv"><span>Son Konum Zamanı</span><span>@(d.LastLocationAt?.ToLocalTime().ToString("dd.MM.yyyy HH:mm") ?? "—")</span></div>
+        </div>
+
+        <div class="card">
+            <h2>Uzaktan Komutlar</h2>
+            <div class="cmd-grid">
+                <form asp-action="SendCommand" method="post">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="id" value="@d.Id" />
+                    <input type="hidden" name="deviceIdentifier" value="@d.DeviceId" />
+                    <input type="hidden" name="type" value="LOCK" />
+                    <button class="btn btn-block" type="submit">🔒 Kilitle</button>
+                </form>
+                <form asp-action="SendCommand" method="post">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="id" value="@d.Id" />
+                    <input type="hidden" name="deviceIdentifier" value="@d.DeviceId" />
+                    <input type="hidden" name="type" value="RESTART" />
+                    <button class="btn btn-block" type="submit"
+                            onclick="return confirm('Cihaz yeniden başlatılsın mı?')">🔁 Yeniden Başlat</button>
+                </form>
+                <form asp-action="SendCommand" method="post">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="id" value="@d.Id" />
+                    <input type="hidden" name="deviceIdentifier" value="@d.DeviceId" />
+                    <input type="hidden" name="type" value="REQUEST_LOCATION" />
+                    <button class="btn btn-block btn-copper" type="submit">📍 Konum İste</button>
+                </form>
+                <form asp-action="SendCommand" method="post">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="id" value="@d.Id" />
+                    <input type="hidden" name="deviceIdentifier" value="@d.DeviceId" />
+                    <input type="hidden" name="type" value="SCREENSHOT" />
+                    <button class="btn btn-block btn-copper" type="submit">🖥️ Ekran Görüntüsü Al</button>
+                </form>
+            </div>
+            <form asp-action="SendCommand" method="post" class="inline-form" style="margin-top:14px">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="id" value="@d.Id" />
+                <input type="hidden" name="deviceIdentifier" value="@d.DeviceId" />
+                <input type="hidden" name="type" value="MESSAGE" />
+                <div class="field">
+                    <label>Cihaza Mesaj Gönder</label>
+                    <input type="text" name="payload" placeholder="Bildirim metni" required />
+                </div>
+                <button class="btn" type="submit">Gönder</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <h2>APK Kurulumu</h2>
+            @if (Model.ManagedApps.Count == 0)
+            {
+                <p class="muted">Henüz yüklenmiş APK yok. <a asp-action="Apps">Uygulamalar</a> sayfasından yükleyin.</p>
+            }
+            else
+            {
+                <form asp-action="PushApk" method="post" class="inline-form">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="deviceIdentifier" value="@d.DeviceId" />
+                    <div class="field">
+                        <label>Yüklenecek Uygulama</label>
+                        <select name="appId" required>
+                            @foreach (var a in Model.ManagedApps)
+                            {
+                                <option value="@a.Id">@a.AppLabel (@a.FileName)</option>
+                            }
+                        </select>
+                    </div>
+                    <button class="btn btn-copper" type="submit">Cihaza Kur</button>
+                </form>
+            }
+        </div>
+    </div>
+
+    <div class="col">
+        <div class="card">
+            <h2>Konum Geçmişi</h2>
+            @if (Model.Locations.Count == 0)
+            {
+                <div class="empty">Henüz konum verisi yok. "Konum İste" ile talep edebilirsiniz.</div>
+            }
+            else
+            {
+                <div id="map"></div>
+            }
+        </div>
+
+        <div class="card">
+            <h2>Son Ekran Görüntüsü</h2>
+            @if (!string.IsNullOrEmpty(d.LastScreenshotPath))
+            {
+                <p class="muted">@(d.LastScreenshotAt?.ToLocalTime().ToString("dd.MM.yyyy HH:mm:ss"))</p>
+                <img class="shot" src="@d.LastScreenshotPath" alt="Ekran görüntüsü" />
+            }
+            else
+            {
+                <div class="empty">Henüz ekran görüntüsü alınmadı.</div>
+            }
+        </div>
+
+        <div class="card">
+            <h2>Yüklü Uygulamalar (@Model.Apps.Count)</h2>
+            @if (Model.Apps.Count == 0)
+            {
+                <div class="empty">Cihaz henüz uygulama envanteri bildirmedi.</div>
+            }
+            else
+            {
+                <div class="app-list">
+                    @foreach (var a in Model.Apps)
+                    {
+                        <div class="kv">
+                            <span>@a.AppLabel @(a.IsLaunchable ? "" : "(arka plan)")</span>
+                            <span><code class="pkg">@a.PackageName</code></span>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @if (Model.Locations.Count > 0)
+    {
+        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+        <script>
+            const points = @Html.Raw(locationsJson);
+            if (points.length) {
+                const map = L.map('map').setView([points[0].lat, points[0].lng], 14);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 19, attribution: '© OpenStreetMap'
+                }).addTo(map);
+
+                const latlngs = [];
+                points.forEach((p, i) => {
+                    latlngs.push([p.lat, p.lng]);
+                    const marker = L.circleMarker([p.lat, p.lng], {
+                        radius: i === 0 ? 8 : 5,
+                        color: i === 0 ? '#b87333' : '#0b1f3a',
+                        fillColor: i === 0 ? '#b87333' : '#16345e',
+                        fillOpacity: 0.9
+                    }).addTo(map);
+                    marker.bindPopup('<b>' + (i === 0 ? 'Son konum' : 'Geçmiş') + '</b><br>' + p.at +
+                        (p.acc ? '<br>±' + Math.round(p.acc) + ' m' : ''));
+                });
+                L.polyline(latlngs, { color: '#16345e', weight: 2, opacity: 0.5 }).addTo(map);
+                map.fitBounds(L.latLngBounds(latlngs).pad(0.2));
+            }
+        </script>
+    }
+}

@@ -1,0 +1,89 @@
+@model AppsViewModel
+@{
+    ViewData["Title"] = "Uygulamalar";
+    string Size(long b) => b >= 1_048_576 ? $"{b / 1_048_576.0:0.0} MB" : $"{b / 1024.0:0} KB";
+}
+
+<div class="page-head">
+    <h1>Uygulamalar (APK)</h1>
+    <span class="muted">@Model.Apps.Count yüklü paket</span>
+</div>
+
+@if (!string.IsNullOrEmpty(Model.StatusMessage))
+{
+    <div class="alert alert-ok">@Model.StatusMessage</div>
+}
+
+<div class="row">
+    <div class="col">
+        <div class="card">
+            <h2>Yeni APK Yükle</h2>
+            <form asp-action="UploadApk" method="post" enctype="multipart/form-data">
+                @Html.AntiForgeryToken()
+                <label>APK Dosyası</label>
+                <input type="file" name="file" accept=".apk" required />
+                <div class="grid-2">
+                    <div>
+                        <label>Uygulama Adı</label>
+                        <input type="text" name="appLabel" placeholder="Örn. Saha Uygulaması" />
+                    </div>
+                    <div>
+                        <label>Sürüm</label>
+                        <input type="text" name="versionName" placeholder="1.0.0" />
+                    </div>
+                </div>
+                <label>Paket Adı (opsiyonel)</label>
+                <input type="text" name="packageName" placeholder="com.ornek.uygulama" />
+                <button class="btn btn-copper btn-block" type="submit" style="margin-top:16px">Yükle</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="col">
+        <div class="card">
+            <h2>Yüklü APK'lar</h2>
+            @if (Model.Apps.Count == 0)
+            {
+                <div class="empty">Henüz APK yüklenmedi.</div>
+            }
+            else
+            {
+                <table>
+                    <thead>
+                        <tr><th>Uygulama</th><th>Sürüm</th><th>Boyut</th><th></th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var a in Model.Apps)
+                        {
+                            <tr>
+                                <td>@a.AppLabel<br /><code class="pkg">@a.PackageName</code></td>
+                                <td>@(string.IsNullOrEmpty(a.VersionName) ? "—" : a.VersionName)</td>
+                                <td>@Size(a.FileSizeBytes)</td>
+                                <td>
+                                    @if (Model.Devices.Count > 0)
+                                    {
+                                        <form asp-action="PushApk" method="post" class="inline-form" style="gap:6px">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="appId" value="@a.Id" />
+                                            <select name="deviceIdentifier" required style="width:auto">
+                                                @foreach (var dev in Model.Devices)
+                                                {
+                                                    <option value="@dev.DeviceId">@dev.Model</option>
+                                                }
+                                            </select>
+                                            <button class="btn btn-sm" type="submit">Kur</button>
+                                        </form>
+                                    }
+                                    else
+                                    {
+                                        <span class="muted">Cihaz yok</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </div>
+</div>

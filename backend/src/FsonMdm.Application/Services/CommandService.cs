@@ -80,7 +80,11 @@ public class CommandService : ICommandService
             "LOCK" => CommandType.Lock,
             "MESSAGE" => CommandType.Message,
             "RESTART" => CommandType.Restart,
-            _ => throw new ValidationException($"Geçersiz komut tipi: '{value}'. (LOCK | MESSAGE | RESTART)")
+            "INSTALL_APK" => CommandType.InstallApk,
+            "REQUEST_LOCATION" => CommandType.RequestLocation,
+            "SCREENSHOT" => CommandType.Screenshot,
+            _ => throw new ValidationException(
+                $"Geçersiz komut tipi: '{value}'. (LOCK | MESSAGE | RESTART | INSTALL_APK | REQUEST_LOCATION | SCREENSHOT)")
         };
 
     private static CommandStatus ParseCommandStatus(string value) =>
@@ -93,5 +97,17 @@ public class CommandService : ICommandService
         };
 
     private static CommandDto Map(Command c) =>
-        new(c.Id, c.Type.ToString().ToUpperInvariant(), c.Payload, c.Status.ToString().ToUpperInvariant(), c.CreatedAt);
+        new(c.Id, ToWire(c.Type), c.Payload, c.Status.ToString().ToUpperInvariant(), c.CreatedAt);
+
+    /// <summary>Stable wire representation matching the accepted input tokens.</summary>
+    private static string ToWire(CommandType type) => type switch
+    {
+        CommandType.Lock => "LOCK",
+        CommandType.Message => "MESSAGE",
+        CommandType.Restart => "RESTART",
+        CommandType.InstallApk => "INSTALL_APK",
+        CommandType.RequestLocation => "REQUEST_LOCATION",
+        CommandType.Screenshot => "SCREENSHOT",
+        _ => type.ToString().ToUpperInvariant()
+    };
 }

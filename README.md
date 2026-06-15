@@ -9,7 +9,8 @@ Sistem iki parçadan oluşur:
 | Parça | Teknoloji | Klasör |
 |-------|-----------|--------|
 | Backend API | ASP.NET Core 8 · EF Core · SQLite · JWT · Clean Architecture · Multi-Tenant | `backend/` |
-| Android Agent (DPC) | Kotlin · DevicePolicyManager · Foreground Service · WorkManager | `android/FsonMdmAgent/` |
+| Yönetim Paneli (Dashboard) | ASP.NET Core MVC · Razor · Cookie Auth (aynı API projesi içinde) | `backend/src/FsonMdm.Api/Dashboard/` + `Views/` |
+| Android Agent (DPC) | Kotlin · DevicePolicyManager · Foreground Service · WorkManager · MediaProjection | `android/FsonMdmAgent/` |
 
 > **Kapsam notu:** Bu sistem cihazın **zaten Device Owner olarak hazırlandığını**
 > varsayar. Enrollment, QR ve Device Owner kurulumu kapsam dışıdır.
@@ -48,6 +49,12 @@ dotnet run
 
 İlk açılışta veritabanı otomatik migrate edilir ve demo verisi tohumlanır
 (`Migrate` + `DbSeeder`). SQLite dosyası `fsonmdm.db` olarak oluşur.
+
+> **Şema güncellemesi (önemli):** Bu sürümde cihaz konumu, ekran görüntüsü,
+> uygulama envanteri ve yüklenen APK kataloğu için yeni tablolar/kolonlar tek
+> `InitialCreate` migration'ına eklendi. Geliştirme ortamında mevcut bir
+> `fsonmdm.db` dosyanız varsa, yeni şemanın oluşması için **dosyayı silin**;
+> uygulama tekrar çalışınca veritabanını yeniden oluşturup tohumlar.
 
 Adresler (`launchSettings.json`):
 
@@ -88,9 +95,17 @@ Adresler (`launchSettings.json`):
 | GET  | `/api/device/list` | Admin | Tenant cihaz listesi |
 | GET  | `/api/policy/{deviceId}` | Cihaz/Admin | Aktif politikayı getir |
 | POST | `/api/policy/update` | Admin | Politika oluştur/güncelle (versiyon otomatik artar) |
-| POST | `/api/command/create` | Admin | Komut kuyruğa ekle (LOCK·MESSAGE·RESTART) |
+| POST | `/api/command/create` | Admin | Komut kuyruğa ekle (LOCK·MESSAGE·RESTART·INSTALL_APK·REQUEST_LOCATION·SCREENSHOT) |
 | GET  | `/api/command/pending/{deviceId}` | Cihaz/Admin | Bekleyen komutlar |
 | POST | `/api/command/ack` | Cihaz | Komut durum güncelle (SENT·DONE) |
+| POST | `/api/device/location` | Cihaz | Konum bildir (lat/lng/accuracy) |
+| GET  | `/api/device/{deviceId}/locations` | Admin | Konum geçmişi |
+| POST | `/api/device/apps` | Cihaz | Yüklü uygulama envanterini bildir |
+| GET  | `/api/device/{deviceId}/apps` | Admin | Cihazın yüklü uygulamaları |
+| POST | `/api/device/screenshot` | Cihaz | Ekran görüntüsü yükle (multipart) |
+| POST | `/api/app/upload` | Admin | APK yükle (multipart) |
+| GET  | `/api/app/list` | Admin | Yüklü APK kataloğu |
+| GET  | `/api/app/download/{id}` | Admin/Cihaz | APK indir (cihaz kurulum için) |
 
 `backend/FsonMdm.http` dosyası tüm akışı uçtan uca test eden hazır REST
 istekleri içerir (login → register → heartbeat → policy update → policy fetch →
@@ -110,7 +125,36 @@ device list → LOCK komutu → poll → ack).
 
 ---
 
-## 2. Android Agent (DPC)
+## 2. Yönetim Paneli (Dashboard)
+
+Cihazları görüntülemek ve yönetmek için sunucu tarafında render edilen bir
+**ASP.NET Core MVC paneli**, aynı `FsonMdm.Api` projesi içinde yer alır. API
+JWT ile, panel ise **cookie tabanlı** (`Dashboard` şeması) kimlik doğrulaması
+kullanır; ikisi de aynı `ITenantContext` üzerinden tenant'ı çözer, böylece
+Application servisleri değişmeden çalışır.
+
+### Erişim
+
+1. Backend'i çalıştırın.
+2. Tarayıcıdan kök adrese gidin: `http://localhost:5080/` → otomatik olarak
+   `/dashboard` adresine yönlendirir.
+3. Demo admin bilgileriyle giriş yapın: `admin` / `Admin123!`.
+
+### Sayfalar
+
+| Sayfa | Yol | İşlev |
+|-------|-----|-------|
+| Cihazlar | `/dashboard` | Tüm cihazlar, durum, son görülme, son konum |
+| Cihaz Detay | `/dashboard/device/{id}` | Bilgi kartı, uzaktan komutlar, konum haritası (Leaflet/OSM), son ekran görüntüsü, yüklü uygulamalar, APK kurulum |
+| Politika & Kiosk | `/dashboard/policy` | Kısıtlama anahtarları + cihazların bildirdiği uygulamalardan kiosk beyaz listesi seçimi + manuel paket ekleme |
+| Uygulamalar (APK) | `/dashboard/apps` | APK yükleme, katalog listesi, seçilen cihaza kurulum komutu gönderme |
+
+> Harita için Leaflet ve OpenStreetMap karoları CDN üzerinden çağrılır; panelin
+> bu özelliğinin çalışması için tarayıcının internet erişimi gerekir.
+
+---
+
+## 3. Android Agent (DPC)
 
 ### Mimari
 
@@ -118,9 +162,11 @@ device list → LOCK komutu → poll → ack).
 android/FsonMdmAgent/app/src/main/kotlin/com/fson/mdm/
 ├─ core/         Constants, Prefs (token/deviceId/policy önbelleği)
 ├─ data/         MdmRepository + remote/ (Retrofit ApiService, ApiClient, AuthInterceptor, DTO'lar)
-├─ device/       PolicyEnforcer, KioskManager, CommandExecutor, MdmDeviceAdminReceiver
-├─ service/      HeartbeatService (foreground), MdmSyncEngine, PolicyWorker, BootReceiver
-├─ permission/   PermissionManager (sistem ayar yönlendirmeleri)
+├─ device/       PolicyEnforcer, KioskManager, CommandExecutor, MdmDeviceAdminReceiver,
+│                LocationProvider, AppInventory, ApkInstaller, MediaProjectionHolder
+├─ service/      HeartbeatService (foreground), MdmSyncEngine, PolicyWorker, BootReceiver,
+│                ScreenCaptureService (MediaProjection ile tek kare yakalama)
+├─ permission/   PermissionManager (sistem ayar yönlendirmeleri + konum izni)
 └─ ui/           MainActivity (kontrol paneli), KioskActivity (kilitli mod)
 ```
 
@@ -175,25 +221,49 @@ android/FsonMdmAgent/app/src/main/kotlin/com/fson/mdm/
 | `LOCK` | `lockNow()` ile ekranı anında kilitler |
 | `MESSAGE` | Yüksek öncelikli bildirim olarak yönetici mesajını gösterir |
 | `RESTART` | `reboot()` ile cihazı yeniden başlatır (Device Owner) |
+| `INSTALL_APK` | Payload'daki APK id'siyle `/api/app/download/{id}`'den indirir, `PackageInstaller` ile sessizce kurar (Device Owner) |
+| `REQUEST_LOCATION` | `LocationManager` ile tek konum alır ve `/api/device/location`'a bildirir |
+| `SCREENSHOT` | Operatör izni verildiyse `MediaProjection` ile tek kare yakalayıp yükler |
 
 Her komut önce **SENT**, başarıyla çalıştırılınca **DONE** olarak ACK'lenir.
 
+### Yeni özellikler için notlar
+
+- **Konum takibi:** Uygulama açılışındaki **Konum erişimi** iznini verin. Tek
+  seferlik `REQUEST_LOCATION` komutu uygulama ön planda/yakın zamanda
+  kullanılmışken güvenilir çalışır; senkron döngüsü ayrıca en iyi çabayla
+  periyodik konum bildirir.
+- **Uygulama envanteri:** Senkron döngüsünde en fazla 6 saatte bir yüklü
+  uygulamalar bildirilir; bunlar panelde kiosk beyaz listesi seçiminde listelenir.
+- **Uzaktan görüntüleme (ekran görüntüsü):** Bu MVP'de "remote control",
+  **tek kare ekran görüntüsü** temeli olarak gerçeklenmiştir. Sürekli canlı
+  yayın + uzaktan dokunma enjeksiyonu kapsam dışıdır. Ekran yakalama için
+  operatörün **MainActivity'deki "Uzaktan görüntüleme" iznini** vermesi gerekir;
+  MediaProjection token'ı kalıcı olmadığından bu izin **uygulama her açıldığında
+  bir kez** verilmelidir.
+- **APK kurulumu:** Sessiz kurulum cihazın **Device Owner** olmasını gerektirir.
+
 ---
 
-## 3. MVP Test Senaryosu
+## 4. MVP Test Senaryosu
 
-1. Backend'i çalıştırın (`dotnet run`).
-2. Android uygulamasını emülatörde açın, izinleri verin, **Cihazı Kaydet**.
-   → Backend'de cihaz **Active** olur (`GET /api/device/list` ile doğrulayın).
-3. Swagger veya `FsonMdm.http` ile admin girişi yapın, `policy/update` ile
-   `kioskMode=true, blockCamera=true` gönderin.
-4. Uygulamada **Politikayı Güncelle** → kamera kapanır, kiosk modu aktifleşir.
-5. `command/create` ile `LOCK` komutu gönderin → bir sonraki döngüde cihaz
-   ekranı kilitlenir ve komut **DONE** olarak işaretlenir.
+1. Backend'i çalıştırın (`dotnet run`). (Varsa eski `fsonmdm.db`'yi silin.)
+2. Tarayıcıdan `http://localhost:5080/` → panele `admin / Admin123!` ile girin.
+3. Android uygulamasını emülatörde açın, izinleri verin (konum dâhil), **Cihazı
+   Kaydet**. → Panelde **Cihazlar** sayfasında cihaz **Active** görünür.
+4. **Politika & Kiosk** sayfasında `kioskMode` ve `blockCamera` işaretleyip
+   kaydedin → cihaz bir sonraki döngüde uygular.
+5. **Cihaz Detay** sayfasından:
+   - **Konum İste** → kısa süre sonra harita konum noktasını gösterir.
+   - **Ekran Görüntüsü Al** → (uygulamada uzaktan görüntüleme izni verildiyse)
+     son ekran görüntüsü kartında görünür.
+   - **Kilitle / Yeniden Başlat / Mesaj** komutlarını test edin.
+6. **Uygulamalar** sayfasından bir APK yükleyip ilgili cihaza **Kur** komutu
+   gönderin → cihaz indirir ve sessizce kurar (Device Owner).
 
 ---
 
-## 4. Notlar
+## 5. Notlar
 
 - Backend yeni NuGet paketi gerektirmez; yalnızca standart ASP.NET Core / EF Core
   paketleri kullanılır. Şifreler `PBKDF2 (SHA256, 100k iter)` ile saklanır.

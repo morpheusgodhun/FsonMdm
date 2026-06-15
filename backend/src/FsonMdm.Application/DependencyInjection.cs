@@ -12,6 +12,7 @@ public static class DependencyInjection
         services.AddScoped<IDeviceService, DeviceService>();
         services.AddScoped<IPolicyService, PolicyService>();
         services.AddScoped<ICommandService, CommandService>();
+        services.AddScoped<IAppCatalogService, AppCatalogService>();
         return services;
     }
 }

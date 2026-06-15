@@ -72,6 +72,12 @@ public class PolicyService : IPolicyService
         return Map(existing);
     }
 
+    public async Task<PolicyDto?> GetCurrentAsync(CancellationToken ct = default)
+    {
+        var policy = await _policies.GetLatestByTenantAsync(_tenantContext.TenantId, ct);
+        return policy is null ? null : Map(policy);
+    }
+
     private static PolicyDto Map(Policy p)
     {
         var config = string.IsNullOrWhiteSpace(p.ConfigJson)

@@ -64,3 +64,25 @@ data class AckRequest(
     @SerializedName("commandId") val commandId: String,
     @SerializedName("status") val status: String
 )
+
+// ---- Location tracking ----
+
+/** POST /api/device/location body. */
+data class LocationReportRequest(
+    @SerializedName("latitude") val latitude: Double,
+    @SerializedName("longitude") val longitude: Double,
+    @SerializedName("accuracy") val accuracy: Double?
+)
+
+// ---- Installed-app inventory ----
+
+data class DeviceAppItem(
+    @SerializedName("packageName") val packageName: String,
+    @SerializedName("appLabel") val appLabel: String,
+    @SerializedName("isLaunchable") val isLaunchable: Boolean
+)
+
+/** POST /api/device/apps body. */
+data class ReportAppsRequest(
+    @SerializedName("apps") val apps: List<DeviceAppItem>
+)

@@ -17,6 +17,17 @@ public class Device : BaseEntity
     public DeviceStatus Status { get; set; } = DeviceStatus.Inactive;
     public DateTime? LastSeen { get; set; }
 
+    // Last known location (denormalised for quick listing/map display).
+    public double? LastLatitude { get; set; }
+    public double? LastLongitude { get; set; }
+    public DateTime? LastLocationAt { get; set; }
+
+    // Latest remote screenshot (relative URL under the uploads path).
+    public string? LastScreenshotPath { get; set; }
+    public DateTime? LastScreenshotAt { get; set; }
+
     public Tenant Tenant { get; set; } = null!;
     public ICollection<Command> Commands { get; set; } = new List<Command>();
+    public ICollection<DeviceLocation> Locations { get; set; } = new List<DeviceLocation>();
+    public ICollection<DeviceApp> Apps { get; set; } = new List<DeviceApp>();
 }

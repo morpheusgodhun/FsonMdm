@@ -17,7 +17,7 @@ namespace FsonMdm.Infrastructure.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "8.0.26")
+                .HasAnnotation("ProductVersion", "8.0.11")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
@@ -104,6 +104,21 @@ namespace FsonMdm.Infrastructure.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("nvarchar(64)");
 
+                    b.Property<double?>("LastLatitude")
+                        .HasColumnType("float");
+
+                    b.Property<DateTime?>("LastLocationAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<double?>("LastLongitude")
+                        .HasColumnType("float");
+
+                    b.Property<DateTime?>("LastScreenshotAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("LastScreenshotPath")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTime?>("LastSeen")
                         .HasColumnType("datetime2");
 
@@ -124,6 +139,128 @@ namespace FsonMdm.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("Devices", (string)null);
+                });
+
+            modelBuilder.Entity("FsonMdm.Domain.Entities.DeviceApp", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AppLabel")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("DeviceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsLaunchable")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("PackageName")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<DateTime>("ReportedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DeviceId", "PackageName")
+                        .IsUnique();
+
+                    b.ToTable("DeviceApps", (string)null);
+                });
+
+            modelBuilder.Entity("FsonMdm.Domain.Entities.DeviceLocation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<double?>("Accuracy")
+                        .HasColumnType("float");
+
+                    b.Property<DateTime>("CapturedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("DeviceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<double>("Latitude")
+                        .HasColumnType("float");
+
+                    b.Property<double>("Longitude")
+                        .HasColumnType("float");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DeviceId", "CapturedAt");
+
+                    b.ToTable("DeviceLocations", (string)null);
+                });
+
+            modelBuilder.Entity("FsonMdm.Domain.Entities.ManagedApp", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AppLabel")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<long>("FileSizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("PackageName")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("StoredFileName")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UploadedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("VersionName")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.ToTable("ManagedApps", (string)null);
                 });
 
             modelBuilder.Entity("FsonMdm.Domain.Entities.Policy", b =>
@@ -220,6 +357,28 @@ namespace FsonMdm.Infrastructure.Migrations
                     b.Navigation("Tenant");
                 });
 
+            modelBuilder.Entity("FsonMdm.Domain.Entities.DeviceApp", b =>
+                {
+                    b.HasOne("FsonMdm.Domain.Entities.Device", "Device")
+                        .WithMany("Apps")
+                        .HasForeignKey("DeviceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Device");
+                });
+
+            modelBuilder.Entity("FsonMdm.Domain.Entities.DeviceLocation", b =>
+                {
+                    b.HasOne("FsonMdm.Domain.Entities.Device", "Device")
+                        .WithMany("Locations")
+                        .HasForeignKey("DeviceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Device");
+                });
+
             modelBuilder.Entity("FsonMdm.Domain.Entities.Policy", b =>
                 {
                     b.HasOne("FsonMdm.Domain.Entities.Tenant", "Tenant")
@@ -233,7 +392,11 @@ namespace FsonMdm.Infrastructure.Migrations
 
             modelBuilder.Entity("FsonMdm.Domain.Entities.Device", b =>
                 {
+                    b.Navigation("Apps");
+
                     b.Navigation("Commands");
+
+                    b.Navigation("Locations");
                 });
 
             modelBuilder.Entity("FsonMdm.Domain.Entities.Tenant", b =>
