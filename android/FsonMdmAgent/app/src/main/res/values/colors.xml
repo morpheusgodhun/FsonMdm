@@ -1,0 +1,13 @@
+<resources>
+    <color name="fson_navy">#0E2A47</color>
+    <color name="fson_navy_dark">#081B2F</color>
+    <color name="fson_copper">#C46A32</color>
+    <color name="fson_bg">#0B1622</color>
+    <color name="fson_surface">#13263B</color>
+    <color name="fson_text">#E8EEF4</color>
+    <color name="fson_text_dim">#9DB0C2</color>
+    <color name="fson_green">#3FB66B</color>
+    <color name="fson_red">#D8584F</color>
+    <color name="white">#FFFFFF</color>
+    <color name="black">#000000</color>
+</resources>

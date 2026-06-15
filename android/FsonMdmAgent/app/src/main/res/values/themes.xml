@@ -1,0 +1,16 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <style name="Theme.FsonMdm" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/fson_copper</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="colorSecondary">@color/fson_navy</item>
+        <item name="android:colorBackground">@color/fson_bg</item>
+        <item name="colorSurface">@color/fson_surface</item>
+        <item name="android:statusBarColor">@color/fson_navy_dark</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+
+    <style name="Theme.FsonMdm.Kiosk" parent="Theme.FsonMdm">
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowNoTitle">true</item>
+    </style>
+</resources>

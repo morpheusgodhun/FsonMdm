@@ -1,0 +1,55 @@
+<resources>
+    <string name="app_name">FSON MDM</string>
+
+    <!-- Device admin -->
+    <string name="device_admin_label">FSON MDM Yönetici</string>
+    <string name="device_admin_description">FSON MDM kurumsal cihaz yönetimi ve politika uygulaması için cihaz yöneticisi yetkilerini kullanır.</string>
+
+    <!-- Notifications -->
+    <string name="heartbeat_channel_name">Cihaz Durumu</string>
+    <string name="heartbeat_channel_desc">Cihazın merkezi sunucuyla bağlantısını canlı tutar.</string>
+    <string name="heartbeat_notification_title">FSON MDM aktif</string>
+    <string name="heartbeat_notification_text">Cihaz yönetiliyor ve sunucuyla iletişimde.</string>
+
+    <!-- Main screen -->
+    <string name="status_title">FSON MDM Aracısı</string>
+    <string name="status_subtitle">Kurumsal cihaz yönetim aracısı</string>
+    <string name="section_connection">Sunucu Bağlantısı</string>
+    <string name="section_permissions">İzinler</string>
+    <string name="section_device">Cihaz Durumu</string>
+
+    <string name="label_base_url">Sunucu adresi</string>
+    <string name="label_enrollment_key">Kayıt anahtarı (Enrollment Key)</string>
+    <string name="btn_register">Cihazı Kaydet</string>
+    <string name="btn_refresh_policy">Politikayı Güncelle</string>
+    <string name="btn_start_kiosk">Kiosk Modunu Başlat</string>
+    <string name="btn_stop_kiosk">Kiosk Modundan Çık</string>
+
+    <string name="perm_notifications">Bildirim izni</string>
+    <string name="perm_battery">Pil optimizasyonu muafiyeti</string>
+    <string name="perm_usage">Kullanım erişimi (Usage Access)</string>
+    <string name="perm_overlay">Diğer uygulamaların üzerinde gösterme</string>
+    <string name="perm_grant">İzin Ver</string>
+    <string name="perm_granted">Verildi</string>
+    <string name="perm_missing">Eksik</string>
+
+    <string name="state_not_registered">Kayıtlı değil</string>
+    <string name="state_registered">Kayıtlı ve aktif</string>
+    <string name="state_device_owner_yes">Device Owner: Aktif</string>
+    <string name="state_device_owner_no">Device Owner: Pasif (yalnızca sınırlı özellikler)</string>
+
+    <string name="msg_registering">Cihaz kaydediliyor…</string>
+    <string name="msg_register_ok">Cihaz başarıyla kaydedildi.</string>
+    <string name="msg_register_fail">Kayıt başarısız: %1$s</string>
+    <string name="msg_policy_applied">Politika uygulandı (v%1$d).</string>
+    <string name="msg_policy_fail">Politika alınamadı: %1$s</string>
+    <string name="msg_need_register">Önce cihazı kaydedin.</string>
+    <string name="msg_kiosk_on">Kiosk modu aktif.</string>
+    <string name="msg_kiosk_off">Kiosk modu kapatıldı.</string>
+
+    <!-- Kiosk -->
+    <string name="kiosk_title">Cihaz Kilitli Mod</string>
+    <string name="kiosk_subtitle">Bu cihaz FSON MDM tarafından yönetilmektedir.</string>
+    <string name="kiosk_allowed_apps">İzinli Uygulamalar</string>
+    <string name="kiosk_no_apps">Tanımlı izinli uygulama yok.</string>
+</resources>

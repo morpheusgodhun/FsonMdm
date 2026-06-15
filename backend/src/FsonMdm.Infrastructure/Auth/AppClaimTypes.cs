@@ -1,0 +1,14 @@
+namespace FsonMdm.Infrastructure.Auth;
+
+public static class AppClaimTypes
+{
+    public const string TenantId = "tenantId";
+    public const string DeviceId = "deviceId";
+    public const string DeviceIdentifier = "deviceIdentifier";
+}
+
+public static class AppRoles
+{
+    public const string Admin = "Admin";
+    public const string Device = "Device";
+}

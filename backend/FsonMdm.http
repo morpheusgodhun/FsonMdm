@@ -1,0 +1,72 @@
+@host = http://localhost:5080
+@enrollmentKey = FSON-DEMO-ENROLLMENT-KEY
+
+### 1) Admin login
+# @name login
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{ "username": "admin", "password": "Admin123!" }
+
+### Save admin token from the response above
+@adminToken = {{login.response.body.token}}
+
+### 2) Register a device (agent flow)
+# @name register
+POST {{host}}/api/device/register
+Content-Type: application/json
+X-Enrollment-Token: {{enrollmentKey}}
+
+{ "deviceId": "TEST-DEVICE-001", "model": "Pixel 7", "ipAddress": "10.0.0.5" }
+
+### Save device token
+@deviceToken = {{register.response.body.token}}
+
+### 3) Heartbeat (device)
+POST {{host}}/api/device/heartbeat
+Content-Type: application/json
+Authorization: Bearer {{deviceToken}}
+
+{ "ipAddress": "10.0.0.5" }
+
+### 4) Admin: update policy
+POST {{host}}/api/policy/update
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "name": "Kiosk Policy",
+  "config": {
+    "kioskMode": true,
+    "blockCamera": true,
+    "blockSettings": true,
+    "blockPlayStore": true,
+    "allowedApps": ["com.android.chrome"]
+  }
+}
+
+### 5) Device: fetch policy
+GET {{host}}/api/policy/TEST-DEVICE-001
+Authorization: Bearer {{deviceToken}}
+
+### 6) Admin: list devices
+GET {{host}}/api/device/list
+Authorization: Bearer {{adminToken}}
+
+### 7) Admin: send LOCK command
+POST {{host}}/api/command/create
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{ "deviceId": "TEST-DEVICE-001", "type": "LOCK", "payload": null }
+
+### 8) Device: poll pending commands
+GET {{host}}/api/command/pending/TEST-DEVICE-001
+Authorization: Bearer {{deviceToken}}
+
+### 9) Device: ack command (replace COMMAND_ID)
+POST {{host}}/api/command/ack
+Content-Type: application/json
+Authorization: Bearer {{deviceToken}}
+
+{ "commandId": "COMMAND_ID", "status": "DONE" }
